@@ -27,9 +27,9 @@ jobs:
           done
       - run: python -m pip install build twine
       - run: |
-          python -m build packages/probnode --outdir dist
-          python -m build packages/probnode-mcp --outdir dist
-      - run: python -m twine check dist/*
+          python -m build packages/probnode --outdir dist/sdk
+          python -m build packages/probnode-mcp --outdir dist/mcp
+      - run: python -m twine check dist/sdk/* dist/mcp/*
       - uses: actions/upload-artifact@v4
         with:
           name: dist
@@ -46,7 +46,14 @@ jobs:
         with:
           name: dist
           path: dist/
-      # probnode-mcp depends on probnode-sdk; one upload of both, the SDK listed first.
+      # One upload per project: PyPI scopes each OIDC token to a single project, so one step for
+      # both is refused (403 "OIDC scoped token is not valid for project"). The SDK goes first;
+      # probnode-mcp depends on it.
       - uses: pypa/gh-action-pypi-publish@v1.14.3
         with:
-          packages-dir: dist/
+          packages-dir: dist/sdk/
+          skip-existing: true
+      - uses: pypa/gh-action-pypi-publish@v1.14.3
+        with:
+          packages-dir: dist/mcp/
+          skip-existing: true
