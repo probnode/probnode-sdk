@@ -1,8 +1,8 @@
 name: publish-pypi
 
 # probnode-sdk and probnode-mcp to PyPI by Trusted Publishing (OIDC): no token is stored anywhere.
-# Each project on pypi.org names probnode/probnode-sdk, this workflow file and the environment `pypi`
-# as its trusted publisher. Push a tag `pypi-vX.Y.Z` once both pyproject versions say X.Y.Z.
+# probnode-sdk trusts probnode/probnode-sdk + this file + environment `pypi`; probnode-mcp the
+# same with environment `pypi-mcp`. Push a tag `pypi-vX.Y.Z` once both pyproject versions say X.Y.Z.
 
 on:
   push:
@@ -35,7 +35,10 @@ jobs:
           name: dist
           path: dist/
 
-  publish:
+  # One job per project, each in its own environment. PyPI picks the trusted publisher by the
+  # token claims (repository, workflow, environment); two projects with the same claims get a
+  # token for the first one only (403 "OIDC scoped token is not valid for project").
+  publish-sdk:
     needs: build
     runs-on: ubuntu-latest
     environment: pypi
@@ -46,13 +49,23 @@ jobs:
         with:
           name: dist
           path: dist/
-      # One upload per project: PyPI scopes each OIDC token to a single project, so one step for
-      # both is refused (403 "OIDC scoped token is not valid for project"). The SDK goes first;
-      # probnode-mcp depends on it.
       - uses: pypa/gh-action-pypi-publish@v1.14.3
         with:
           packages-dir: dist/sdk/
           skip-existing: true
+
+  # probnode-mcp depends on probnode-sdk, so it goes second.
+  publish-mcp:
+    needs: publish-sdk
+    runs-on: ubuntu-latest
+    environment: pypi-mcp
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
       - uses: pypa/gh-action-pypi-publish@v1.14.3
         with:
           packages-dir: dist/mcp/
