@@ -1,0 +1,43 @@
+[project]
+name = "probnode-sdk"
+version = "0.1.0"
+description = "Python client and CLI for ProbNode: Polymarket order books, trades and gaps"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = [
+    "httpx>=0.27",
+    # The lp2 reader decodes the native book format; parquet and csv.gz need nothing extra to
+    # download, but reading any of them into a table does.
+    "numpy>=1.24",
+    "pyarrow>=14",
+]
+
+[project.optional-dependencies]
+pandas = ["pandas>=2.0"]
+polars = ["polars>=0.20"]
+dev = ["pytest>=8.3", "ruff>=0.6"]
+
+[project.urls]
+Homepage = "https://probnode.com"
+Documentation = "https://probnode.com/docs"
+
+[project.scripts]
+probnode = "probnode.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/probnode"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]

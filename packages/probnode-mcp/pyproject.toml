@@ -1,0 +1,31 @@
+[project]
+name = "probnode-mcp"
+version = "0.1.0"
+description = "MCP server for ProbNode: Polymarket order books, trades and gaps for AI agents"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = ["probnode-sdk>=0.1.0", "mcp>=1.2,<2"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.3", "ruff>=0.6"]
+
+[project.scripts]
+probnode-mcp = "probnode_mcp.server:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/probnode_mcp"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
