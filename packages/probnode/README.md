@@ -4,8 +4,7 @@ Python client and command line for [ProbNode](https://probnode.com): Polymarket 
 and feed gaps as hourly and market-day files (lp2, parquet, csv.gz), with a sha256 for every file.
 
 ```sh
-pip install ./packages/probnode        # from a checkout; on PyPI as probnode-sdk soon
-                                       # (not `pip install probnode`: that is someone else's package)
+pip install probnode-sdk        # not `pip install probnode`: that is someone else's package
 probnode login
 probnode datasets
 probnode files books parquet 2026-11-08T12 2026-11-08T14

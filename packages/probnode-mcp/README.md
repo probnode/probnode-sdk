@@ -5,7 +5,7 @@ history: find markets, check recording coverage, list files with sizes and sha25
 links, and pull small windows of rows.
 
 ```sh
-pip install ./packages/probnode ./packages/probnode-mcp   # from a checkout; on PyPI soon
+pip install probnode-mcp
 ```
 
 ```json
