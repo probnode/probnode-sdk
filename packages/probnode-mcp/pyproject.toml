@@ -5,7 +5,7 @@ description = "MCP server for ProbNode: Polymarket order books, trades and gaps 
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
-dependencies = ["probnode-sdk>=0.2.0", "mcp>=1.2,<2"]
+dependencies = ["probnode-sdk>=0.2.0", "mcp>=1.2,<3"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8.3", "ruff>=0.6"]
