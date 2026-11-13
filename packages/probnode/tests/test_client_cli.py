@@ -79,6 +79,28 @@ class Fake:
                     "licence_detail": "",
                 },
             )
+        if url.path == "/v1/data/exports":
+            ask = json.loads(request.content)
+            ext = "parquet" if ask["format"] == "parquet" else "csv.gz"
+            path = (
+                f"x/{ask['format']}/book_full/event_date={ask['day']}/market={ask['market']}.{ext}"
+            )
+            self.blobs.setdefault(path, b"PAR1-a-day-of-one-market-PAR1")
+            data = self.blobs[path]
+            return httpx.Response(
+                200,
+                json={
+                    "urls": [
+                        {"object_path": path, "url": f"https://lake.test/{path}", "expires_at": "x"}
+                    ],
+                    "licence": "research",
+                    "licence_detail": "",
+                    "rows": 7,
+                    "bytes": len(data),
+                    "sha256": hashlib.sha256(data).hexdigest(),
+                    "built": True,
+                },
+            )
         return httpx.Response(404, json={"detail": "not found"})
 
     def served(self, path: str) -> bytes:
@@ -202,3 +224,19 @@ def test_sync_refetches_a_file_changed_on_disk(fake: Fake, tmp_path: Path) -> No
     assert cli.main(["sync", *ARGS, "-o", str(out)]) == 0
     assert fake.fetches[2:] == [victim]
     assert cli.main(["doctor", str(out)]) == 0
+
+
+def test_export_downloads_one_market_day_and_checks_it(fake: Fake, tmp_path: Path) -> None:
+    out = tmp_path / "data"
+    assert cli.main(["export", "btc-updown-5m-1", "2026-11-12", "-o", str(out)]) == 0
+    path = out / "x/parquet/book_full/event_date=2026-11-12/market=btc-updown-5m-1.parquet"
+    assert path.read_bytes() == b"PAR1-a-day-of-one-market-PAR1"
+    # A file that does not match its sha256 is refused and nothing is left behind.
+    fake.blobs[path.relative_to(out).as_posix()] = b"PAR1-a-day-of-one-market-PAR1"
+    real = fake.served
+    fake.served = lambda p: b"tampered"
+    try:
+        assert cli.main(["export", "btc-updown-5m-1", "2026-11-12", "-o", str(tmp_path / "x")]) == 2
+    finally:
+        fake.served = real
+    assert not list((tmp_path / "x").rglob("*.parquet"))

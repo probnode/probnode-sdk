@@ -262,6 +262,43 @@ class Client:
         for f in files:
             yield self.download(f, dest, url=urls[f.object_path], verify=verify)
 
+    def book_export(self, market: str, day: str, *, format: str = "parquet") -> dict[str, Any]:
+        """Ask for one market's UTC day of the full book: the answer of POST /v1/data/exports -
+        `urls` (one signed link), `rows`, `bytes`, `sha256` and `built`."""
+        return self._json(
+            "POST", "/v1/data/exports", json={"market": market, "day": day, "format": format}
+        )
+
+    def export_book(
+        self,
+        market: str,
+        day: str,
+        dest: str | Path = ".",
+        *,
+        format: str = "parquet",
+        verify: bool = True,
+    ) -> Path:
+        """One market's UTC day of the full book (every level change and trade), downloaded to
+        `dest/<object_path>` and checked against its sha256. The first request for a market and
+        day makes the file - seconds for most markets - and later ones find it made. The day must
+        have ended (UTC). Needs a paid plan."""
+        out = self.book_export(market, day, format=format)
+        (url,) = out["urls"]
+        file = DataFile(
+            dataset="book_full",
+            format=format,
+            event_date=day,
+            hour=0,
+            src="all",
+            object_path=url["object_path"],
+            rows=out["rows"],
+            bytes=out["bytes"],
+            sha256=out["sha256"],
+            granularity="market_day",
+            market=market,
+        )
+        return self.download(file, dest, url=url["url"], verify=verify)
+
     # -- range query ------------------------------------------------------------------------
 
     def timeseries(

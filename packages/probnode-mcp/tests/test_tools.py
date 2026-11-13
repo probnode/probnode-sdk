@@ -31,6 +31,18 @@ class Stub:
     def sign(self, paths: list[str]) -> dict[str, str]:
         return {p: f"https://lake/{p}" for p in paths}
 
+    def book_export(self, market: str, day: str, *, format: str = "parquet") -> dict:
+        if market == "free-plan":
+            raise ProbNodeError(402, "plan 'free' does not cover the full book")
+        path = f"x/{format}/book_full/event_date={day}/market={market}.parquet"
+        return {
+            "urls": [{"object_path": path, "url": f"https://lake/{path}", "expires_at": "x"}],
+            "rows": 12,
+            "bytes": 3456,
+            "sha256": "cd" * 32,
+            "built": True,
+        }
+
     def timeseries(self, *args: Any, **kw: Any) -> list[dict]:
         assert kw["format"] == "ndjson"
         return [{"i": i} for i in range(int(args[1]))]
@@ -74,4 +86,12 @@ def test_every_tool_is_registered() -> None:
         "sign_files",
         "timeseries",
         "samples",
+        "export_book",
     }
+
+
+def test_export_book_returns_the_link_not_the_bytes() -> None:
+    out = server.export_book("btc-updown-5m-1", "2026-11-12")
+    assert out["url"].startswith("https://lake/x/parquet/book_full/") and out["rows"] == 12
+    assert set(out) == {"url", "expires_at", "object_path", "rows", "bytes", "sha256"}
+    assert server.export_book("free-plan", "2026-11-12")["status"] == 402

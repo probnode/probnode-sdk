@@ -17,5 +17,5 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
       - run: pip install -e "packages/probnode[dev]" -e "packages/probnode-mcp[dev]"
-      - run: ruff check packages
+      - run: ruff check packages examples
       - run: pytest -q packages/probnode/tests packages/probnode-mcp/tests

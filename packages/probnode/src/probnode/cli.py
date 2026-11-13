@@ -114,6 +114,12 @@ def cmd_files(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_export(args: argparse.Namespace) -> int:
+    path = _client(args).export_book(args.market, args.day, Path(args.out), format=args.format)
+    print(path)
+    return 0
+
+
 def cmd_download(args: argparse.Namespace) -> int:
     pn = _client(args)
     files = _listing(pn, args)
@@ -207,6 +213,15 @@ def parser() -> argparse.ArgumentParser:
         selection(sp)
         sp.add_argument("-o", "--out", default=".", help="directory (default: here)")
         sp.set_defaults(run=run)
+
+    export = sub.add_parser(
+        "export", help="one market's UTC day of the full book, as parquet or csv.gz"
+    )
+    export.add_argument("market", help="market slug")
+    export.add_argument("day", help="UTC day, YYYY-MM-DD (must have ended)")
+    export.add_argument("--format", default="parquet", choices=["parquet", "csv"])
+    export.add_argument("-o", "--out", default=".", help="directory (default: here)")
+    export.set_defaults(run=cmd_export)
 
     doctor = sub.add_parser("doctor", help="re-check every synced file against its sha256")
     doctor.add_argument("dir", nargs="?", default=".")

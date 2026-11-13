@@ -112,6 +112,28 @@ def sign_files(object_paths: list[str]) -> Any:
 
 
 @mcp.tool()
+def export_book(market: str, day: str, format: str = "parquet") -> Any:
+    """One market's whole UTC day of the full order book - every level change of every price,
+    and every trade - as a parquet (or csv) file: returns a signed download URL (about 15 minutes),
+    its rows, bytes and sha256. `day` is YYYY-MM-DD and must have ended. The first request for a
+    market and day makes the file (seconds, up to a minute for the busiest markets). Needs a paid
+    plan; counts as one signed URL."""
+    try:
+        out = client().book_export(market, day, format=format)
+    except ProbNodeError as exc:
+        return _refusal(exc)
+    (url,) = out["urls"]
+    return {
+        "url": url["url"],
+        "expires_at": url["expires_at"],
+        "object_path": url["object_path"],
+        "rows": out["rows"],
+        "bytes": out["bytes"],
+        "sha256": out["sha256"],
+    }
+
+
+@mcp.tool()
 def timeseries(dataset: str, market: str, start: str, end: str) -> Any:
     """Rows of one dataset (e.g. quotes, trades, ohlcv_1m) for one market over a short window,
     as JSON objects. For more than a few hundred rows use list_files + sign_files instead."""

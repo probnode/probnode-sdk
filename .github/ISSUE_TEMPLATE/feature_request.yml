@@ -1,0 +1,37 @@
+name: Feature request
+description: Suggest a change to the Python client, the command line or the MCP server.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        This tracker is for the clients in this repository. For questions about the data or your plan,
+        see https://probnode.com/help or write to hello@probnode.com.
+  - type: dropdown
+    id: package
+    attributes:
+      label: Package
+      options:
+        - probnode-sdk (Python client)
+        - probnode-sdk (probnode command line)
+        - probnode-mcp
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What you are trying to do, and what is in the way today.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you would like
+      description: The call, command or tool you have in mind, with an example if you can.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you considered
