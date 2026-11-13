@@ -3,7 +3,7 @@ contact_links:
   - name: Documentation
     url: https://probnode.com/docs
     about: Endpoints, datasets, schemas, limits and errors.
-  - name: Account, plan or data question
+  - name: Account, plan or data question (hello@probnode.com)
     url: https://probnode.com/help
     about: For your account, billing, or what the data contains, see the help centre or write to hello@probnode.com.
   - name: Report a security issue

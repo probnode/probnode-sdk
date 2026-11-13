@@ -1,19 +1,24 @@
 <p align="center">
-  <a href="https://probnode.com"><img src="assets/probnode-logo-round.svg" alt="ProbNode" width="96" height="96"></a>
+  <a href="https://probnode.com"><img src="https://raw.githubusercontent.com/probnode/probnode-sdk/main/assets/probnode-logo.png" alt="ProbNode" width="96" height="96"></a>
 </p>
 
-<h1 align="center">ProbNode clients</h1>
+<h1 align="center">probnode-sdk</h1>
+
+<p align="center"><b>The official Python client, command line and MCP server for ProbNode: Polymarket order books, trades and coverage.</b></p>
 
 <p align="center">
-  <a href="https://pypi.org/project/probnode-sdk/"><img src="https://img.shields.io/pypi/v/probnode-sdk?label=probnode-sdk" alt="probnode-sdk on PyPI"></a>
-  <a href="https://pypi.org/project/probnode-mcp/"><img src="https://img.shields.io/pypi/v/probnode-mcp?label=probnode-mcp" alt="probnode-mcp on PyPI"></a>
-  <img src="https://img.shields.io/badge/python-3.10%2B-blue" alt="Python 3.10+">
   <a href="https://github.com/probnode/probnode-sdk/actions/workflows/ci.yml"><img src="https://github.com/probnode/probnode-sdk/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green" alt="MIT license"></a>
+  <a href="https://pypi.org/project/probnode-sdk/"><img src="https://img.shields.io/pypi/v/probnode-sdk.svg?label=probnode-sdk" alt="probnode-sdk on PyPI"></a>
+  <a href="https://pypi.org/project/probnode-mcp/"><img src="https://img.shields.io/pypi/v/probnode-mcp.svg?label=probnode-mcp" alt="probnode-mcp on PyPI"></a>
+  <a href="https://pypi.org/project/probnode-sdk/"><img src="https://img.shields.io/badge/python-3.10%2B-blue.svg" alt="Python 3.10+"></a>
+  <a href="https://github.com/probnode/probnode-sdk/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
 </p>
 
-The official Python client, command line and MCP server for [ProbNode](https://probnode.com):
-Polymarket order books, trades and a published record of what was captured, delivered as parquet
+## Overview
+
+The official Python client, command line and MCP server for [ProbNode](https://probnode.com).
+ProbNode records Polymarket at full depth: every change of every price level of every outcome
+token, every trade, and a published record of what was captured. The data is delivered as parquet
 and csv files with a sha256 for every file.
 
 | Package | Install | What it is |
@@ -21,16 +26,33 @@ and csv files with a sha256 for every file.
 | [`probnode-sdk`](packages/probnode) | `pip install probnode-sdk` | The Python client (`import probnode`) and the `probnode` command. |
 | [`probnode-mcp`](packages/probnode-mcp) | `pip install probnode-mcp` | An MCP server that gives an AI agent the same API. |
 
-## Install
+## Features
+
+- **One market's day of the full book in one call.** `export_book` builds and downloads every
+  level change and every trade of a market's UTC day, as parquet or csv.gz.
+- **Downloads you can trust.** Each file is written to a `.part`, checked against its sha256, and
+  only then renamed; `probnode doctor` re-checks a whole directory later.
+- **Incremental sync.** `probnode sync` fetches only what is new or changed since the last run.
+- **Straight into a table.** `probnode.read()` opens parquet, csv.gz and lp2 as a pyarrow Table,
+  ready for pandas, polars or DuckDB.
+- **Public catalog and coverage.** Markets, series, samples and the per-hour coverage ledger need
+  no key.
+- **For AI agents.** `probnode-mcp` exposes the same API as MCP tools, with bulk data handed over
+  as signed links rather than through the model's context.
+
+## Installation
 
 ```sh
 pip install probnode-sdk              # the PyPI name; the import name is `probnode`
 pip install "probnode-sdk[pandas]"    # with pandas; `[polars]` for polars
+pip install probnode-mcp              # the MCP server
 ```
 
 Python 3.10 or newer. `pip install probnode` installs an unrelated package: the name was taken.
 
-## Quickstart
+## Quick start
+
+### Python
 
 ```python
 import probnode
@@ -73,7 +95,7 @@ More in [`examples/`](examples):
 | [`03_gaps_and_recorded_share.py`](examples/03_gaps_and_recorded_share.py) | a market's recorded share, the day's gap journal by reason | Free |
 | [`04_query_parquet.py`](examples/04_query_parquet.py) | DuckDB and polars over the downloaded parquet | as the files |
 
-## Command line
+### Command line
 
 ```sh
 probnode login                                                    # email + password, key saved
@@ -89,20 +111,16 @@ Times are UTC hours; the end is exclusive. `--granularity market_day` and `--mar
 one file per market and UTC day. Exit codes: 0 done, 1 a check failed, 2 the API refused.
 `probnode --help` lists everything.
 
-## MCP
-
-```sh
-pip install probnode-mcp
-```
+### MCP
 
 ```json
 {"mcpServers": {"probnode": {"command": "probnode-mcp", "env": {"PROBNODE_API_KEY": "pmd_..."}}}}
 ```
 
 Tools: `datasets`, `search_markets`, `coverage`, `list_files`, `sign_files`, `timeseries`,
-`samples`, and `export_book` (a signed link to one market's day of the full book). Every call goes through the same API, plan and limits as the
-SDK. Bulk data is handed over as signed URLs rather than through the model's context; `timeseries`
-returns at most 500 rows.
+`samples`, and `export_book` (a signed link to one market's day of the full book). Every call goes
+through the same API, plan and limits as the SDK. Bulk data is handed over as signed URLs rather
+than through the model's context; `timeseries` returns at most 500 rows.
 
 ## Data
 
@@ -119,22 +137,46 @@ Polymarket, every market, no volume gate. Schemas by level:
 In the market-day files prices are probabilities and sizes are outcome-token shares, as decimals;
 hourly files keep the recorder's integer scales. Timestamps are UTC, and book and trade rows carry
 two clocks: when ProbNode received the message and the venue's own. ProbNode stores the book in
-its own compact format, Probe (`.probe`); what you download is parquet or csv. Columns, units and
-every endpoint: [probnode.com/docs](https://probnode.com/docs).
+its own compact format, [Probe](https://github.com/probnode/probe) (`.probe`); what you download
+is parquet or csv.
 
-## Links
+## Documentation
 
-- Documentation: https://probnode.com/docs
-- API reference (OpenAPI 3.1): https://probnode.com/openapi.json
-- Plans and pricing: https://probnode.com/pricing
-- Help centre: https://probnode.com/help
-- Contact: hello@probnode.com
-- Security reports: see [SECURITY.md](SECURITY.md)
+- Documentation: [probnode.com/docs](https://probnode.com/docs)
+- Schemas, columns and units: [probnode.com/docs/schemas](https://probnode.com/docs/schemas)
+- API reference (OpenAPI 3.1): [probnode.com/openapi.json](https://probnode.com/openapi.json)
+- Plans and pricing: [probnode.com/pricing](https://probnode.com/pricing)
 
-Bugs and feature requests for the clients: [open an issue](https://github.com/probnode/probnode-sdk/issues).
-Questions about your account, plan or the data itself: hello@probnode.com.
+## Versioning and compatibility
+
+- Both packages follow [Semantic Versioning](https://semver.org) and are released together with
+  the same version number, from a `pypi-vX.Y.Z` tag. Until 1.0, a minor version may change the
+  API; every change is listed in the [CHANGELOG](CHANGELOG.md).
+- Python 3.10 or newer; CI tests 3.10 and 3.12.
+- The client talks to the ProbNode API's `/v1`; answers are returned as dicts and pyarrow Tables,
+  so fields the API adds later reach you without an upgrade.
+
+## Support
+
+- Questions about your account, plan or the data: [hello@probnode.com](mailto:hello@probnode.com)
+  or the [help centre](https://probnode.com/help).
+- Bugs and feature requests for the clients: [open an issue](https://github.com/probnode/probnode-sdk/issues/new/choose).
+- Security reports: privately, as the [security policy](SECURITY.md) says.
+
+## Contributing
+
+Pull requests are welcome; see [CONTRIBUTING.md](CONTRIBUTING.md). This project follows the
+[Contributor Covenant](CODE_OF_CONDUCT.md).
+
+## Other ProbNode libraries
+
+| Repository | Language | What it is | Package |
+|---|---|---|---|
+| [probnode-rs](https://github.com/probnode/probnode-rs) | Rust | The official Rust client: async and blocking, typed models | `probnode` (crates.io release on the way) |
+| [probnode-cpp](https://github.com/probnode/probnode-cpp) | C++17 | The official C++ client, built with CMake | CMake `find_package` or FetchContent |
+| [probe](https://github.com/probnode/probe) | Rust, Python | Probe, the lossless order-book file format: specification, library and CLI | [`probe-format`](https://crates.io/crates/probe-format), [`probe-cli`](https://crates.io/crates/probe-cli) on crates.io |
 
 ## License
 
-MIT, see [LICENSE](LICENSE). The license covers the code in this repository; the data you download
-is licensed under the terms of your ProbNode plan.
+MIT, see [LICENSE](LICENSE). Copyright 2026 ProbNode. The license covers the code in this
+repository; the data you download is licensed under the terms of your ProbNode plan.
