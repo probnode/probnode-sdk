@@ -27,6 +27,16 @@ DEFAULT_BASE_URL = "https://probnode.com"
 CONFIG_PATH = Path(os.environ.get("PROBNODE_CONFIG", Path.home() / ".config" / "probnode.json"))
 SIGN_BATCH = 100  # POST /v1/data/urls takes at most 100 paths
 CHUNK = 1 << 20
+#: The wait for POST /v1/data/exports, which builds the day when it is the first to ask for it.
+#:
+#: The server gives that build 600 s and answers 504
+#: when it runs out. A client that gives up at the ordinary 60 s is not being careful - it is
+#: wrong about the operation, and it turns a build that is still running into an error the caller
+#: cannot distinguish from a failure. Measured on 2026-11-14: a market-day export took 63.0 s on a
+#: busy box against a best case of 51.5 s, so the old default had nine seconds of headroom on a
+#: request that reads a whole day of a market. Matching the server is the only number that is not
+#: arbitrary.
+EXPORT_TIMEOUT_S = 600.0
 
 
 class ProbNodeError(Exception):
@@ -264,9 +274,15 @@ class Client:
 
     def book_export(self, market: str, day: str, *, format: str = "parquet") -> dict[str, Any]:
         """Ask for one market's UTC day of the full book: the answer of POST /v1/data/exports -
-        `urls` (one signed link), `rows`, `bytes`, `sha256` and `built`."""
+        `urls` (one signed link), `rows`, `bytes`, `sha256` and `built`.
+
+        This one request can build the day, so it carries `EXPORT_TIMEOUT_S` rather than the
+        client's ordinary timeout. Everything else keeps the 60 s default."""
         return self._json(
-            "POST", "/v1/data/exports", json={"market": market, "day": day, "format": format}
+            "POST",
+            "/v1/data/exports",
+            json={"market": market, "day": day, "format": format},
+            timeout=EXPORT_TIMEOUT_S,
         )
 
     def export_book(
