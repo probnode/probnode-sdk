@@ -4,7 +4,7 @@
     from probnode.live import Live
 
     async def main():
-        async with Live(url="wss://<live host>/v2/live", key="pmd_...") as live:
+        async with Live(url="wss://live.probnode.com/v2/live", key="pmd_...") as live:
             await live.subscribe(["btc-updown-15m-1795366800"], ["book+", "trades+"])
             async for msg in live:
                 if msg["type"] == "book+":
@@ -15,14 +15,20 @@
 
 `format="probe"` gets the same events as binary records (book+ / trades+ as the event's records:
 levels, the probnode record, the BookExt / TradeExt); `decode()` turns a frame into dicts. Needs
-the `websockets` package (`pip install probnode[live]`).
+the `websockets` package (`pip install "probnode-sdk[live]"`).
+
+`reconnect=True` keeps the stream going over a dropped connection: it reopens (backing off 0.5 s
+to 30 s), sends every active subscription again (each starts with a fresh snapshot) and calls
+`on_gap(from_ns, to_ns)` with the wall-clock stretch nothing was received.
 """
 
 from __future__ import annotations
 
+import asyncio
 import json
 import struct
-from collections.abc import AsyncIterator, Iterable
+import time
+from collections.abc import AsyncIterator, Callable, Iterable
 from typing import Any
 
 PRICE = 1e9  # prices are integers x1e9 on the wire
@@ -138,22 +144,51 @@ def decode(frame: bytes) -> list[dict[str, Any]]:
 
 
 class Live:
-    """One connection to `/v2/live`. The key (an account's API key) sets the plan; none = Free."""
+    """One connection to `/v2/live`. The key (an account's API key) sets the plan; none = Free.
 
-    def __init__(self, url: str, key: str | None = None, *, format: str = "json") -> None:
+    reconnect: reopen and resubscribe after a drop (on_gap gets the missed stretch in ns).
+    compress: offer permessage-deflate (less bandwidth, more CPU on both ends); off by default.
+    """
+
+    def __init__(
+        self,
+        url: str,
+        key: str | None = None,
+        *,
+        format: str = "json",
+        reconnect: bool = False,
+        on_gap: Callable[[int, int], Any] | None = None,
+        compress: bool = False,
+    ) -> None:
         if format not in ("json", "probe"):
             raise ValueError("format is json or probe")
         self.url, self.key, self.format = url, key, format
+        self.reconnect, self.on_gap, self.compress = reconnect, on_gap, compress
         self._ws: Any = None
+        self._subs: dict[str, dict[str, Any]] = {}  # market -> its sub message
+        self._closed = False
 
-    async def __aenter__(self) -> Live:
-        import websockets  # optional dependency: probnode[live]
+    async def _open(self) -> None:
+        import websockets  # optional dependency: probnode-sdk[live]
 
         headers = {"Authorization": f"Bearer {self.key}"} if self.key else None
-        self._ws = await websockets.connect(self.url, additional_headers=headers, max_size=None)
+        self._ws = await websockets.connect(
+            self.url,
+            additional_headers=headers,
+            max_size=None,
+            compression="deflate" if self.compress else None,
+        )
+
+    async def __aenter__(self) -> Live:
+        await self._open()
         return self
 
     async def __aexit__(self, *exc: object) -> None:
+        await self.close()
+
+    async def close(self) -> None:
+        """End the connection; iteration stops and no reconnect follows."""
+        self._closed = True
         if self._ws is not None:
             await self._ws.close()
 
@@ -176,13 +211,53 @@ class Live:
         if blocks is not None:
             msg["blocks"] = list(blocks)
         await self._ws.send(json.dumps(msg))
+        for m in msg["markets"]:
+            self._subs[m] = {**msg, "markets": [m]}
+
+    async def unsubscribe(self, markets: Iterable[str]) -> None:
+        """Stop watching markets (every channel of them)."""
+        ms = list(markets)
+        await self._ws.send(json.dumps({"op": "unsub", "markets": ms}))
+        for m in ms:
+            self._subs.pop(m, None)
+
+    async def _resume(self, lost_ns: int) -> None:
+        delay = 0.5
+        while not self._closed:
+            try:
+                await self._open()
+                break
+            except OSError:
+                await asyncio.sleep(delay)
+                delay = min(delay * 2, 30.0)
+        # One message per distinct (channels, blocks): the server takes markets in a list.
+        groups: dict[str, dict[str, Any]] = {}
+        for m, msg in self._subs.items():
+            k = json.dumps({x: msg[x] for x in msg if x != "markets"}, sort_keys=True)
+            groups.setdefault(k, {**msg, "markets": []})["markets"].append(m)
+        for msg in groups.values():
+            await self._ws.send(json.dumps(msg))
+        if self.on_gap is not None:
+            r = self.on_gap(lost_ns, time.time_ns())
+            if asyncio.iscoroutine(r):
+                await r
 
     async def __aiter__(self) -> AsyncIterator[dict[str, Any]]:
-        async for frame in self._ws:
-            if isinstance(frame, bytes):
-                for rec in decode(frame):
-                    yield rec
-                continue
-            m = json.loads(frame)
-            for rec in m if isinstance(m, list) else [m]:
-                yield rec
+        import websockets
+
+        while True:
+            try:
+                async for frame in self._ws:
+                    if isinstance(frame, bytes):
+                        for rec in decode(frame):
+                            yield rec
+                        continue
+                    m = json.loads(frame)
+                    for rec in m if isinstance(m, list) else [m]:
+                        yield rec
+                if self._closed or not self.reconnect:
+                    return
+            except websockets.ConnectionClosed:
+                if self._closed or not self.reconnect:
+                    raise
+            await self._resume(time.time_ns())

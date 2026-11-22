@@ -35,3 +35,47 @@ def test_decode_refuses_a_truncated_frame() -> None:
 def test_format_is_checked() -> None:
     with pytest.raises(ValueError):
         Live("wss://example.test/v2/live", format="xml")
+
+
+def test_reconnect_resubscribes_and_reports_the_gap() -> None:
+    """A live server that drops the first connection: the client reopens, sends its subscription
+    again (one message per channel set), and on_gap gets the stretch."""
+    import asyncio
+    import json
+
+    websockets = pytest.importorskip("websockets")
+    got: list[list[dict]] = []
+    gaps: list[tuple[int, int]] = []
+
+    async def handler(ws) -> None:  # type: ignore[no-untyped-def]
+        msgs = []
+        conn = len(got)
+        got.append(msgs)
+        async for raw in ws:
+            m = json.loads(raw)
+            msgs.append(m)
+            if m["op"] == "sub":
+                await ws.send(json.dumps({"type": "header", "conn": conn}))
+                if conn == 0:
+                    await ws.close()
+                    return
+
+    async def main() -> None:
+        async with websockets.serve(handler, "127.0.0.1", 0) as srv:
+            port = srv.sockets[0].getsockname()[1]
+            live = Live(
+                f"ws://127.0.0.1:{port}", reconnect=True, on_gap=lambda a, b: gaps.append((a, b))
+            )
+            async with live:
+                await live.subscribe(["m1", "m2"], ["book+"])
+                await live.unsubscribe(["m2"])
+                seen = []
+                async for msg in live:
+                    seen.append(msg)
+                    if msg.get("conn") == 1:
+                        break
+            assert [m["conn"] for m in seen] == [0, 1]
+
+    asyncio.run(main())
+    assert got[1] == [{"op": "sub", "markets": ["m1"], "channels": ["book+"], "format": "json"}]
+    assert len(gaps) == 1 and gaps[0][0] <= gaps[0][1]
