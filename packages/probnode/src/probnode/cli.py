@@ -194,7 +194,9 @@ def parser() -> argparse.ArgumentParser:
 
     def selection(sp: argparse.ArgumentParser) -> None:
         sp.add_argument("dataset", help="books, trades, gaps, markets, quotes, ohlcv_1m")
-        sp.add_argument("format", help="lp2, parquet or csv")
+        #: `evmin` is still accepted by the API and so is not listed: it is what Probe was
+        #: called until 2026-11-21 and what every file is still named.
+        sp.add_argument("format", help="probe, parquet or csv")
         sp.add_argument("start", type=iso_hour, help="first UTC hour, inclusive")
         sp.add_argument("end", type=iso_hour, help="last UTC hour, exclusive")
         sp.add_argument("--granularity", default="hour", choices=["hour", "market_day"])

@@ -1,6 +1,6 @@
 [project]
 name = "probnode-sdk"
-version = "0.2.0"
+version = "0.3.0"
 description = "Python client and CLI for ProbNode: Polymarket order books, trades and gaps"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -14,6 +14,11 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# The published Probe reader (Apache-2.0, github.com/probnode/probe): the same Rust
+# implementation as the `probe` CLI. Optional because downloading a file needs nothing extra.
+probe = ["probe-format>=0.2"]
+# The real-time stream /v2/live (probnode.live).
+live = ["websockets>=13"]
 pandas = ["pandas>=2.0"]
 polars = ["polars>=0.20"]
 dev = ["pytest>=8.3", "ruff>=0.6"]
