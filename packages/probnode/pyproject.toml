@@ -1,6 +1,6 @@
 [project]
 name = "probnode-sdk"
-version = "0.3.1"
+version = "0.3.2"
 description = "Python client and CLI for ProbNode: Polymarket order books, trades and gaps"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -26,6 +26,11 @@ dev = ["pytest>=8.3", "ruff>=0.6"]
 [project.urls]
 Homepage = "https://probnode.com"
 Documentation = "https://probnode.com/docs"
+"Live API" = "https://probnode.com/docs/live-api?lang=python"
+"Live API client" = "https://probnode.com/docs/live-api/client?lang=python"
+Changelog = "https://probnode.com/docs/live-api/release-notes"
+Source = "https://github.com/probnode/probnode-sdk"
+Issues = "https://github.com/probnode/probnode-sdk/issues"
 
 [project.scripts]
 probnode = "probnode.cli:main"
